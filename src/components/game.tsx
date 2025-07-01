@@ -18,12 +18,15 @@ import { Progress } from "@/components/ui/progress";
 import { Icons } from "@/components/icons";
 import { Heart, Trophy, Target, Clock, ListOrdered, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type TargetCircle = { x: number; y: number; radius: number };
 type LeaderboardEntry = { name: string; score: number; time: number };
 type GameState = "enterName" | "playing" | "assessing" | "feedback" | "gameOver";
 
 export function Game() {
+  const isMobile = useIsMobile();
+  const [canvasSize, setCanvasSize] = useState(600);
   const [gameState, setGameState] = useState<GameState>("enterName");
   const [playerName, setPlayerName] = useState("");
   const [isGeneratingName, setIsGeneratingName] = useState(false);
@@ -36,6 +39,12 @@ export function Game() {
   const [assessmentResult, setAssessmentResult] = useState<AssessCircleAccuracyOutput | null>(null);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
+
+  useEffect(() => {
+    if (isMobile !== undefined) {
+      setCanvasSize(isMobile ? 350 : 600);
+    }
+  }, [isMobile]);
 
   useEffect(() => {
     const storedLeaderboard = localStorage.getItem("circleAceLeaderboard");
@@ -77,9 +86,8 @@ export function Game() {
   }, [gameState, startTime]);
 
   const generateTarget = useCallback(() => {
-    const canvasSize = 600;
-    const padding = 50;
-    const minRadius = 50;
+    const padding = canvasSize * 0.1;
+    const minRadius = canvasSize * 0.1;
     const maxRadius = (canvasSize / 2) - padding;
     const radius = Math.floor(Math.random() * (maxRadius - minRadius + 1)) + minRadius;
     const minCoord = padding + radius;
@@ -87,7 +95,7 @@ export function Game() {
     const x = Math.floor(Math.random() * (maxCoord - minCoord + 1)) + minCoord;
     const y = Math.floor(Math.random() * (maxCoord - minCoord + 1)) + minCoord;
     setTargetCircle({ x, y, radius });
-  }, []);
+  }, [canvasSize]);
   
   const handleGenerateName = async () => {
     setIsGeneratingName(true);
@@ -107,8 +115,8 @@ export function Game() {
     setLives(3);
     setJustBeatHighScore(false);
     setElapsedTime(0);
-    setStartTime(Date.now());
     generateTarget();
+    setStartTime(Date.now());
     setGameState("playing");
   };
   
@@ -126,16 +134,12 @@ export function Game() {
       });
       setAssessmentResult(result);
       setScore((prev) => prev + result.accuracyScore);
-      // NOTE: Original spec said to reset on misses, but we are decrementing lives
-      // to make it more of a game.
-      if (result.accuracyScore < 50) {
-        setLives((prev) => prev - 1);
-      }
+      setLives((prev) => prev - 1);
       setGameState("feedback");
-    } catch (error) {
+    } catch (error)
+     {
       console.error("AI assessment failed:", error);
       // Give life back if AI fails
-      setLives((prev) => prev + 1);
       setGameState("playing");
     }
   };
@@ -174,7 +178,7 @@ export function Game() {
       {Array.from({ length: 3 }).map((_, i) => (
         <Heart
           key={i}
-          className={`h-8 w-8 transition-all duration-300 ${
+          className={`h-6 w-6 md:h-8 md:w-8 transition-all duration-300 ${
             i < lives ? "text-destructive fill-destructive" : "text-muted-foreground/30"
           }`}
         />
@@ -189,33 +193,33 @@ export function Game() {
   const topScore = leaderboard[0];
 
   return (
-    <div className="flex w-full max-w-4xl flex-col items-center justify-between rounded-2xl bg-card p-6 shadow-2xl shadow-primary/10" style={{minHeight: '80vh'}}>
-      <header className="flex w-full items-start justify-between">
+    <div className="flex w-full max-w-4xl flex-col items-center justify-between rounded-2xl bg-card p-4 md:p-6 shadow-2xl shadow-primary/10" style={{minHeight: '80vh'}}>
+      <header className="flex w-full flex-col items-center gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex items-center gap-3">
-          <Icons.logo className="h-10 w-10 text-primary" />
-          <h1 className="font-headline text-4xl font-bold text-primary">CircleAce</h1>
+          <Icons.logo className="h-8 w-8 md:h-10 md:w-10 text-primary" />
+          <h1 className="font-headline text-3xl md:text-4xl font-bold text-primary">CircleAce</h1>
         </div>
-        <div className="flex items-end gap-6 text-right">
+        <div className="flex items-end gap-4 md:gap-6 text-right">
           <div className="flex flex-col items-end">
-            <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><Clock className="h-4 w-4" /> TIME</span>
-            <span className="font-headline text-3xl font-bold">{formatTime(elapsedTime)}</span>
+            <span className="flex items-center gap-2 text-xs md:text-sm font-medium text-muted-foreground"><Clock className="h-4 w-4" /> TIME</span>
+            <span className="font-headline text-2xl md:text-3xl font-bold">{formatTime(elapsedTime)}</span>
           </div>
           <div className="flex flex-col items-end">
-            <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><Target className="h-4 w-4" /> SCORE</span>
-            <span className="font-headline text-3xl font-bold text-primary">{score}</span>
+            <span className="flex items-center gap-2 text-xs md:text-sm font-medium text-muted-foreground"><Target className="h-4 w-4" /> SCORE</span>
+            <span className="font-headline text-2xl md:text-3xl font-bold text-primary">{score}</span>
           </div>
           <div className="flex flex-col items-end">
-              <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><Trophy className="h-4 w-4" /> TOP SCORE</span>
-              <span className="font-headline text-3xl font-bold">{topScore?.score ?? 0}</span>
+              <span className="flex items-center gap-2 text-xs md:text-sm font-medium text-muted-foreground"><Trophy className="h-4 w-4" /> TOP SCORE</span>
+              <span className="font-headline text-2xl md:text-3xl font-bold">{topScore?.score ?? 0}</span>
           </div>
-          <Button variant="outline" size="icon" onClick={() => setIsLeaderboardOpen(true)}>
-            <ListOrdered className="h-5 w-5" />
+          <Button variant="outline" size="icon" onClick={() => setIsLeaderboardOpen(true)} className="h-9 w-9 md:h-10 md:w-10">
+            <ListOrdered className="h-4 w-4 md:h-5 md:w-5" />
             <span className="sr-only">Leaderboard</span>
           </Button>
         </div>
       </header>
 
-      <main className="flex flex-grow items-center justify-center py-8">
+      <main className="flex flex-grow items-center justify-center py-4 md:py-8">
         {gameState === "enterName" && (
             <div className="flex flex-col items-center gap-6 text-center">
               <h2 className="font-headline text-3xl font-bold">Welcome to CircleAce!</h2>
@@ -246,7 +250,19 @@ export function Game() {
 
         {(gameState === "playing" || gameState === "assessing") && targetCircle && (
           <div className="relative">
-            <DrawingCanvas targetCircle={targetCircle} onDrawEnd={handleDrawEnd} disabled={gameState === 'assessing'} />
+            {canvasSize > 0 ? (
+              <DrawingCanvas 
+                targetCircle={targetCircle} 
+                onDrawEnd={handleDrawEnd} 
+                disabled={gameState === 'assessing'}
+                width={canvasSize}
+                height={canvasSize}
+              />
+            ) : (
+              <div style={{width: '350px', height: '350px'}} className="flex items-center justify-center">
+                 <div className="animate-pulse font-bold text-primary">Loading...</div>
+              </div>
+            )}
             {gameState === "assessing" && (
               <div className="absolute inset-0 flex flex-col items-center justify-center rounded-lg bg-background/80 backdrop-blur-sm">
                 <div className="animate-pulse font-bold text-primary">Assessing...</div>
@@ -331,3 +347,5 @@ export function Game() {
     </div>
   );
 }
+
+    
