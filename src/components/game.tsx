@@ -116,10 +116,16 @@ export function Game() {
       });
       setAssessmentResult(result);
       setScore((prev) => prev + result.accuracyScore);
-      setLives((prev) => prev - 1);
+      // NOTE: Original spec said to reset on misses, but we are decrementing lives
+      // to make it more of a game.
+      if (result.accuracyScore < 50) {
+        setLives((prev) => prev - 1);
+      }
       setGameState("feedback");
     } catch (error) {
       console.error("AI assessment failed:", error);
+      // Give life back if AI fails
+      setLives((prev) => prev + 1);
       setGameState("playing");
     }
   };
@@ -288,24 +294,28 @@ export function Game() {
             </DialogTitle>
             <DialogDescription>Top 5 Circle Aces. Higher score is better. Faster time breaks ties.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 py-4">
+          <div className="space-y-3 py-4">
             {leaderboard.length > 0 ? (
-              <ol className="space-y-2">
-                {leaderboard.map((entry, index) => (
-                  <li key={index} className="flex items-center justify-between rounded-md bg-secondary p-3">
-                    <div className="flex items-center gap-3">
-                      <span className="w-6 text-center text-lg font-bold">{index + 1}</span>
-                      <span className="font-semibold">{entry.name}</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="font-headline text-xl font-bold text-primary">{entry.score}</span>
-                      <p className="text-sm text-muted-foreground">{formatTime(entry.time)}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
+              <>
+                <div className="grid grid-cols-[2rem,1fr,4rem,4rem] gap-4 px-3 text-sm font-semibold text-muted-foreground">
+                  <span className="text-center">#</span>
+                  <span>Player</span>
+                  <span className="text-right">Score</span>
+                  <span className="text-right">Time</span>
+                </div>
+                <ol className="space-y-2">
+                  {leaderboard.map((entry, index) => (
+                    <li key={index} className="grid grid-cols-[2rem,1fr,4rem,4rem] items-center gap-4 rounded-md bg-secondary p-3">
+                      <span className="text-center text-lg font-bold">{index + 1}</span>
+                      <span className="truncate font-semibold">{entry.name}</span>
+                      <span className="text-right font-headline text-xl font-bold text-primary">{entry.score}</span>
+                      <span className="text-right text-sm text-muted-foreground">{formatTime(entry.time)}</span>
+                    </li>
+                  ))}
+                </ol>
+              </>
             ) : (
-              <p className="text-center text-muted-foreground">No scores yet. Be the first!</p>
+              <p className="py-8 text-center text-muted-foreground">No scores yet. Be the first!</p>
             )}
           </div>
           <DialogFooter>
