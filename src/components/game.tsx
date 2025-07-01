@@ -15,25 +15,58 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Icons } from "@/components/icons";
-import { Heart, Trophy, Target } from "lucide-react";
+import { Heart, Trophy, Target, Clock } from "lucide-react";
 
 type TargetCircle = { x: number; y: number; radius: number };
 type GameState = "idle" | "playing" | "assessing" | "feedback" | "gameOver";
+type HighScore = { score: number; time: number | null };
 
 export function Game() {
   const [gameState, setGameState] = useState<GameState>("idle");
   const [score, setScore] = useState(0);
-  const [highScore, setHighScore] = useState(0);
+  const [highScore, setHighScore] = useState<HighScore>({ score: 0, time: null });
+  const [justBeatHighScore, setJustBeatHighScore] = useState(false);
   const [lives, setLives] = useState(3);
   const [targetCircle, setTargetCircle] = useState<TargetCircle | null>(null);
   const [assessmentResult, setAssessmentResult] = useState<AssessCircleAccuracyOutput | null>(null);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
 
   useEffect(() => {
     const storedHighScore = localStorage.getItem("circleAceHighScore");
     if (storedHighScore) {
-      setHighScore(parseInt(storedHighScore, 10));
+      try {
+        const parsed = JSON.parse(storedHighScore);
+        if (typeof parsed.score === 'number') {
+          setHighScore(parsed);
+        } else {
+          const oldScore = parseInt(storedHighScore, 10);
+          if (!isNaN(oldScore)) {
+            setHighScore({ score: oldScore, time: null });
+          }
+        }
+      } catch (e) {
+        const oldScore = parseInt(storedHighScore, 10);
+        if (!isNaN(oldScore)) {
+          setHighScore({ score: oldScore, time: null });
+        }
+      }
     }
   }, []);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (gameState === 'playing' && startTime) {
+      interval = setInterval(() => {
+        setElapsedTime(Date.now() - startTime);
+      }, 100);
+    }
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [gameState, startTime]);
 
   const generateTarget = useCallback(() => {
     const canvasSize = 600;
@@ -51,6 +84,9 @@ export function Game() {
   const startGame = () => {
     setScore(0);
     setLives(3);
+    setJustBeatHighScore(false);
+    setElapsedTime(0);
+    setStartTime(Date.now());
     generateTarget();
     setGameState("playing");
   };
@@ -80,9 +116,12 @@ export function Game() {
       setGameState("playing");
     } else {
       setGameState("gameOver");
-      if (score > highScore) {
-        setHighScore(score);
-        localStorage.setItem("circleAceHighScore", score.toString());
+      const finalTime = elapsedTime;
+      if (score > highScore.score || (score === highScore.score && finalTime < (highScore.time ?? Infinity))) {
+        const newHighScore = { score, time: finalTime };
+        setHighScore(newHighScore);
+        localStorage.setItem("circleAceHighScore", JSON.stringify(newHighScore));
+        setJustBeatHighScore(true);
       }
     }
   };
@@ -100,8 +139,12 @@ export function Game() {
     </div>
   );
 
+  const formatTime = (ms: number) => {
+    return (ms / 1000).toFixed(1) + 's';
+  }
+
   return (
-    <div className="flex w-full max-w-2xl flex-col items-center justify-between rounded-2xl bg-card p-6 shadow-2xl shadow-primary/10" style={{minHeight: '80vh'}}>
+    <div className="flex w-full max-w-4xl flex-col items-center justify-between rounded-2xl bg-card p-6 shadow-2xl shadow-primary/10" style={{minHeight: '80vh'}}>
       <header className="flex w-full items-start justify-between">
         <div className="flex items-center gap-3">
           <Icons.logo className="h-10 w-10 text-primary" />
@@ -113,8 +156,13 @@ export function Game() {
             <span className="font-headline text-3xl font-bold text-primary">{score}</span>
           </div>
           <div className="flex flex-col items-end">
+            <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><Clock className="h-4 w-4" /> TIME</span>
+            <span className="font-headline text-3xl font-bold">{formatTime(elapsedTime)}</span>
+          </div>
+          <div className="flex flex-col items-end">
             <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><Trophy className="h-4 w-4" /> HIGH SCORE</span>
-            <span className="font-headline text-3xl font-bold">{highScore}</span>
+            <span className="font-headline text-3xl font-bold">{highScore.score}</span>
+            {highScore.time !== null && <span className="text-sm text-muted-foreground">in {formatTime(highScore.time)}</span>}
           </div>
         </div>
       </header>
@@ -142,8 +190,8 @@ export function Game() {
         {gameState === "gameOver" && (
           <div className="flex flex-col items-center gap-4 text-center">
             <h2 className="font-headline text-3xl font-bold">Game Over!</h2>
-            <p className="text-xl">Your final score is <span className="font-bold text-primary">{score}</span>.</p>
-            {score > highScore && <p className="text-accent font-semibold">New High Score!</p>}
+            <p className="text-xl">Your final score is <span className="font-bold text-primary">{score}</span> in <span className="font-bold text-primary">{formatTime(elapsedTime)}</span>.</p>
+            {justBeatHighScore && <p className="text-accent font-semibold">New High Score!</p>}
             <Button size="lg" onClick={startGame}>Play Again</Button>
           </div>
         )}
