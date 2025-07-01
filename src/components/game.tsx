@@ -212,7 +212,7 @@ export function Game() {
               <span className="flex items-center gap-2 text-xs md:text-sm font-medium text-muted-foreground"><Trophy className="h-4 w-4" /> TOP SCORE</span>
               <span className="font-headline text-2xl md:text-3xl font-bold">{topScore?.score ?? 0}</span>
           </div>
-          <Button variant="outline" size="icon" onClick={() => setIsLeaderboardOpen(true)} className="h-9 w-9 md:h-10 md:w-10">
+          <Button variant="outline" size="icon" onClick={() => setIsLeaderboardOpen(true)} className="h-9 w-9 md:h-10 md:w-10 hover:bg-primary/10 hover:text-primary">
             <ListOrdered className="h-4 w-4 md:h-5 md:w-5" />
             <span className="sr-only">Leaderboard</span>
           </Button>
@@ -359,5 +359,3 @@ export function Game() {
     </div>
   );
 }
-
-    
