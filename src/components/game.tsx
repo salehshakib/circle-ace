@@ -195,27 +195,23 @@ export function Game() {
           <Icons.logo className="h-10 w-10 text-primary" />
           <h1 className="font-headline text-4xl font-bold text-primary">CircleAce</h1>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <div className="flex items-center gap-6 text-right">
-            <div className="flex flex-col items-end">
-              <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><Clock className="h-4 w-4" /> TIME</span>
-              <span className="font-headline text-3xl font-bold">{formatTime(elapsedTime)}</span>
-            </div>
-            <div className="flex flex-col items-end">
-              <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><Target className="h-4 w-4" /> SCORE</span>
-              <span className="font-headline text-3xl font-bold text-primary">{score}</span>
-            </div>
+        <div className="flex items-end gap-6 text-right">
+          <div className="flex flex-col items-end">
+            <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><Clock className="h-4 w-4" /> TIME</span>
+            <span className="font-headline text-3xl font-bold">{formatTime(elapsedTime)}</span>
           </div>
-          <div className="flex items-center gap-6 text-right">
-            <div className="flex flex-col items-end">
-                <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><Trophy className="h-4 w-4" /> TOP SCORE</span>
-                <span className="font-headline text-3xl font-bold">{topScore?.score ?? 0}</span>
-            </div>
-            <Button variant="outline" size="icon" onClick={() => setIsLeaderboardOpen(true)}>
-              <ListOrdered className="h-5 w-5" />
-              <span className="sr-only">Leaderboard</span>
-            </Button>
+          <div className="flex flex-col items-end">
+            <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><Target className="h-4 w-4" /> SCORE</span>
+            <span className="font-headline text-3xl font-bold text-primary">{score}</span>
           </div>
+          <div className="flex flex-col items-end">
+              <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><Trophy className="h-4 w-4" /> TOP SCORE</span>
+              <span className="font-headline text-3xl font-bold">{topScore?.score ?? 0}</span>
+          </div>
+          <Button variant="outline" size="icon" onClick={() => setIsLeaderboardOpen(true)}>
+            <ListOrdered className="h-5 w-5" />
+            <span className="sr-only">Leaderboard</span>
+          </Button>
         </div>
       </header>
 
