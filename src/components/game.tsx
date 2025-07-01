@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -51,7 +50,17 @@ export function Game() {
         setLeaderboard([]);
       }
     }
+    const storedPlayerName = localStorage.getItem("circleAcePlayerName");
+    if (storedPlayerName) {
+      setPlayerName(storedPlayerName);
+    }
   }, []);
+
+  useEffect(() => {
+    if (playerName) {
+      localStorage.setItem("circleAcePlayerName", playerName);
+    }
+  }, [playerName]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -197,10 +206,10 @@ export function Game() {
               <span className="font-headline text-3xl font-bold text-primary">{score}</span>
             </div>
           </div>
-          <div className="flex items-end gap-4 text-right">
+          <div className="flex items-center gap-6 text-right">
             <div className="flex flex-col items-end">
-              <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><Trophy className="h-4 w-4" /> TOP SCORE</span>
-              <span className="font-headline text-3xl font-bold">{topScore?.score ?? 0}</span>
+                <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><Trophy className="h-4 w-4" /> TOP SCORE</span>
+                <span className="font-headline text-3xl font-bold">{topScore?.score ?? 0}</span>
             </div>
             <Button variant="outline" size="icon" onClick={() => setIsLeaderboardOpen(true)}>
               <ListOrdered className="h-5 w-5" />
