@@ -133,7 +133,7 @@ export function Game() {
         targetCircle,
       });
       setAssessmentResult(result);
-      setScore((prev) => prev + result.accuracyScore);
+      setScore((prev) => prev + result.finalScore);
       setLives((prev) => prev - 1);
       setGameState("feedback");
     } catch (error)
@@ -293,11 +293,23 @@ export function Game() {
             <DialogDescription>{assessmentResult?.feedback}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="flex items-center justify-between gap-4">
-              <span className="font-semibold">Accuracy Score</span>
-              <span className="font-headline text-2xl font-bold text-primary">{assessmentResult?.accuracyScore}</span>
+            <div className="grid grid-cols-[max-content_1fr_auto] items-center gap-x-4 gap-y-2">
+              <span className="font-semibold text-sm text-muted-foreground">Accuracy</span>
+              <Progress value={assessmentResult?.accuracyScore} className="h-2" />
+              <span className="font-bold tabular-nums">{assessmentResult?.accuracyScore}</span>
+              
+              <span className="font-semibold text-sm text-muted-foreground">Perfection</span>
+              <Progress value={assessmentResult?.perfectionScore} className="h-2" />
+              <span className="font-bold tabular-nums">{assessmentResult?.perfectionScore}</span>
             </div>
-            <Progress value={assessmentResult?.accuracyScore} className="h-4" />
+            
+            <div className="space-y-2 pt-4">
+               <div className="flex items-center justify-between gap-4">
+                <span className="font-semibold">Final Score</span>
+                <span className="font-headline text-2xl font-bold text-primary">{assessmentResult?.finalScore}</span>
+              </div>
+              <Progress value={assessmentResult?.finalScore} className="h-4" />
+            </div>
           </div>
           <DialogFooter>
             <Button onClick={continueGame} className="w-full">

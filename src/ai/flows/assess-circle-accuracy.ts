@@ -26,8 +26,10 @@ const AssessCircleAccuracyInputSchema = z.object({
 export type AssessCircleAccuracyInput = z.infer<typeof AssessCircleAccuracyInputSchema>;
 
 const AssessCircleAccuracyOutputSchema = z.object({
-  accuracyScore: z.number().describe('A score representing the accuracy of the drawn circle compared to the target circle (0-100).'),
-  feedback: z.string().describe('Feedback on how to improve the drawn circle.'),
+  accuracyScore: z.number().describe('A score from 0-100 representing how accurately the drawn circle matches the target circle\'s position and radius.'),
+  perfectionScore: z.number().describe('A score from 0-100 representing how close to a perfect circle the drawing is, regardless of the target.'),
+  finalScore: z.number().describe('A weighted final score from 0-100, combining both accuracy (70% weight) and perfection (30% weight).'),
+  feedback: z.string().describe('Feedback on how to improve the drawn circle, covering both accuracy against the target and the perfection of the shape.'),
 });
 export type AssessCircleAccuracyOutput = z.infer<typeof AssessCircleAccuracyOutputSchema>;
 
@@ -39,7 +41,14 @@ const prompt = ai.definePrompt({
   name: 'assessCircleAccuracyPrompt',
   input: {schema: AssessCircleAccuracyInputSchema},
   output: {schema: AssessCircleAccuracyOutputSchema},
-  prompt: `You are an AI circle accuracy assessor. You will be given a drawn circle image and the parameters of a target circle. Compare the drawn circle to the target circle and give an accuracy score between 0 and 100.  Also, provide feedback on how to improve the drawn circle.
+  prompt: `You are an AI circle drawing judge. Your task is to assess a user's attempt to draw a circle based on a target.
+
+You will provide three scores:
+1.  **Accuracy Score (0-100):** How well does the drawn circle match the target circle in terms of position (center x, y) and size (radius)? A perfect match is 100.
+2.  **Perfection Score (0-100):** How perfectly circular is the shape the user drew? Ignore the target for this score. A geometrically perfect circle is 100.
+3.  **Final Score (0-100):** This should be a weighted average of the Accuracy Score (70% weight) and the Perfection Score (30% weight).
+
+Also, provide concise, helpful feedback on how to improve.
 
 Drawn Circle: {{media url=drawnCircleDataUri}}
 Target Circle: x={{targetCircle.x}}, y={{targetCircle.y}}, radius={{targetCircle.radius}}`,
@@ -53,6 +62,12 @@ const assessCircleAccuracyFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
+    // Ensure finalScore is an integer
+    if (output) {
+      output.finalScore = Math.round(output.finalScore);
+      output.accuracyScore = Math.round(output.accuracyScore);
+      output.perfectionScore = Math.round(output.perfectionScore);
+    }
     return output!;
   }
 );
