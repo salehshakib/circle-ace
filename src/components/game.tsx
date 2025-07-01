@@ -47,18 +47,7 @@ export function Game() {
   }, [isMobile]);
 
   useEffect(() => {
-    const storedLeaderboard = localStorage.getItem("circleAceLeaderboard");
-    if (storedLeaderboard) {
-      try {
-        const parsed = JSON.parse(storedLeaderboard);
-        if (Array.isArray(parsed)) {
-          setLeaderboard(parsed);
-        }
-      } catch (e) {
-        console.error("Failed to parse leaderboard from localStorage", e);
-        setLeaderboard([]);
-      }
-    }
+    fetchLeaderboard();
     const storedPlayerName = localStorage.getItem("circleAcePlayerName");
     if (storedPlayerName) {
       setPlayerName(storedPlayerName);
@@ -84,6 +73,41 @@ export function Game() {
       }
     };
   }, [gameState, startTime]);
+
+  const fetchLeaderboard = async () => {
+    try {
+      const response = await fetch('/api/scores');
+      if (response.ok) {
+        const data = await response.json();
+        const formattedLeaderboard = data.data.map((entry: any) => ({
+          name: entry.username,
+          score: entry.score,
+          time: entry.time
+        }));
+        setLeaderboard(formattedLeaderboard);
+      }
+    } catch (error) {
+      console.error('Failed to fetch leaderboard:', error);
+    }
+  };
+
+  const saveScore = async (username: string, score: number, time: number) => {
+    try {
+      const response = await fetch('/api/scores', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, score, time }),
+      });
+      
+      if (response.ok) {
+        await fetchLeaderboard();
+      }
+    } catch (error) {
+      console.error('Failed to save score:', error);
+    }
+  };
 
   const generateTarget = useCallback(() => {
     const padding = canvasSize * 0.1;
@@ -144,7 +168,7 @@ export function Game() {
     }
   };
 
-  const continueGame = () => {
+  const continueGame = async () => {
     setAssessmentResult(null);
     if (lives > 0) {
       generateTarget();
@@ -152,24 +176,13 @@ export function Game() {
     } else {
       setGameState("gameOver");
       const finalTime = elapsedTime;
-      const newEntry: LeaderboardEntry = { name: playerName, score, time: finalTime };
       
-      const updatedLeaderboard = [...leaderboard, newEntry]
-        .sort((a, b) => {
-          if (b.score !== a.score) {
-            return b.score - a.score;
-          }
-          return a.time - b.time;
-        })
-        .slice(0, 5);
-
       const oldTopScore = leaderboard[0]?.score ?? 0;
       if (score > oldTopScore || (score === oldTopScore && finalTime < (leaderboard[0]?.time ?? Infinity))) {
         setJustBeatHighScore(true);
       }
 
-      setLeaderboard(updatedLeaderboard);
-      localStorage.setItem("circleAceLeaderboard", JSON.stringify(updatedLeaderboard));
+      await saveScore(playerName, score, finalTime);
     }
   };
 
