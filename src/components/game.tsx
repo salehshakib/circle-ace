@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { assessCircleAccuracy } from "@/ai/flows/assess-circle-accuracy";
 import type { AssessCircleAccuracyOutput } from "@/ai/flows/assess-circle-accuracy";
+import { generatePlayerName } from "@/ai/flows/generate-player-name";
 import { DrawingCanvas } from "@/components/drawing-canvas";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,16 +16,20 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Icons } from "@/components/icons";
-import { Heart, Trophy, Target, Clock } from "lucide-react";
+import { Heart, Trophy, Target, Clock, ListOrdered, RefreshCw } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 type TargetCircle = { x: number; y: number; radius: number };
-type GameState = "idle" | "playing" | "assessing" | "feedback" | "gameOver";
-type HighScore = { score: number; time: number | null };
+type LeaderboardEntry = { name: string; score: number; time: number };
+type GameState = "enterName" | "playing" | "assessing" | "feedback" | "gameOver";
 
 export function Game() {
-  const [gameState, setGameState] = useState<GameState>("idle");
+  const [gameState, setGameState] = useState<GameState>("enterName");
+  const [playerName, setPlayerName] = useState("");
+  const [isGeneratingName, setIsGeneratingName] = useState(false);
   const [score, setScore] = useState(0);
-  const [highScore, setHighScore] = useState<HighScore>({ score: 0, time: null });
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [justBeatHighScore, setJustBeatHighScore] = useState(false);
   const [lives, setLives] = useState(3);
   const [targetCircle, setTargetCircle] = useState<TargetCircle | null>(null);
@@ -33,23 +38,16 @@ export function Game() {
   const [elapsedTime, setElapsedTime] = useState(0);
 
   useEffect(() => {
-    const storedHighScore = localStorage.getItem("circleAceHighScore");
-    if (storedHighScore) {
+    const storedLeaderboard = localStorage.getItem("circleAceLeaderboard");
+    if (storedLeaderboard) {
       try {
-        const parsed = JSON.parse(storedHighScore);
-        if (typeof parsed.score === 'number') {
-          setHighScore(parsed);
-        } else {
-          const oldScore = parseInt(storedHighScore, 10);
-          if (!isNaN(oldScore)) {
-            setHighScore({ score: oldScore, time: null });
-          }
+        const parsed = JSON.parse(storedLeaderboard);
+        if (Array.isArray(parsed)) {
+          setLeaderboard(parsed);
         }
       } catch (e) {
-        const oldScore = parseInt(storedHighScore, 10);
-        if (!isNaN(oldScore)) {
-          setHighScore({ score: oldScore, time: null });
-        }
+        console.error("Failed to parse leaderboard from localStorage", e);
+        setLeaderboard([]);
       }
     }
   }, []);
@@ -80,8 +78,21 @@ export function Game() {
     const y = Math.floor(Math.random() * (maxCoord - minCoord + 1)) + minCoord;
     setTargetCircle({ x, y, radius });
   }, []);
+  
+  const handleGenerateName = async () => {
+    setIsGeneratingName(true);
+    try {
+      const result = await generatePlayerName();
+      setPlayerName(result.name);
+    } catch (error) {
+      console.error("Failed to generate player name:", error);
+    } finally {
+      setIsGeneratingName(false);
+    }
+  };
 
   const startGame = () => {
+    if (!playerName.trim()) return;
     setScore(0);
     setLives(3);
     setJustBeatHighScore(false);
@@ -90,6 +101,10 @@ export function Game() {
     generateTarget();
     setGameState("playing");
   };
+  
+  const resetGame = () => {
+    setGameState("enterName");
+  }
 
   const handleDrawEnd = async (dataUri: string) => {
     if (!targetCircle) return;
@@ -117,12 +132,24 @@ export function Game() {
     } else {
       setGameState("gameOver");
       const finalTime = elapsedTime;
-      if (score > highScore.score || (score === highScore.score && finalTime < (highScore.time ?? Infinity))) {
-        const newHighScore = { score, time: finalTime };
-        setHighScore(newHighScore);
-        localStorage.setItem("circleAceHighScore", JSON.stringify(newHighScore));
+      const newEntry: LeaderboardEntry = { name: playerName, score, time: finalTime };
+      
+      const updatedLeaderboard = [...leaderboard, newEntry]
+        .sort((a, b) => {
+          if (b.score !== a.score) {
+            return b.score - a.score;
+          }
+          return a.time - b.time;
+        })
+        .slice(0, 5);
+
+      const oldTopScore = leaderboard[0]?.score ?? 0;
+      if (score > oldTopScore || (score === oldTopScore && finalTime < (leaderboard[0]?.time ?? Infinity))) {
         setJustBeatHighScore(true);
       }
+
+      setLeaderboard(updatedLeaderboard);
+      localStorage.setItem("circleAceLeaderboard", JSON.stringify(updatedLeaderboard));
     }
   };
 
@@ -142,6 +169,8 @@ export function Game() {
   const formatTime = (ms: number) => {
     return (ms / 1000).toFixed(1) + 's';
   }
+  
+  const topScore = leaderboard[0];
 
   return (
     <div className="flex w-full max-w-4xl flex-col items-center justify-between rounded-2xl bg-card p-6 shadow-2xl shadow-primary/10" style={{minHeight: '80vh'}}>
@@ -160,20 +189,44 @@ export function Game() {
             <span className="font-headline text-3xl font-bold">{formatTime(elapsedTime)}</span>
           </div>
           <div className="flex flex-col items-end">
-            <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><Trophy className="h-4 w-4" /> HIGH SCORE</span>
-            <span className="font-headline text-3xl font-bold">{highScore.score}</span>
-            {highScore.time !== null && <span className="text-sm text-muted-foreground">in {formatTime(highScore.time)}</span>}
+            <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><Trophy className="h-4 w-4" /> TOP SCORE</span>
+            <span className="font-headline text-3xl font-bold">{topScore?.score ?? 0}</span>
+            {topScore && <span className="text-sm text-muted-foreground">by {topScore.name}</span>}
           </div>
+           <Button variant="outline" size="icon" onClick={() => setIsLeaderboardOpen(true)} className="ml-4">
+            <ListOrdered className="h-5 w-5" />
+            <span className="sr-only">Leaderboard</span>
+          </Button>
         </div>
       </header>
 
       <main className="flex flex-grow items-center justify-center py-8">
-        {gameState === "idle" && (
-          <div className="flex flex-col items-center gap-4 text-center">
-            <h2 className="font-headline text-3xl font-bold">Welcome to CircleAce!</h2>
-            <p className="max-w-md text-muted-foreground">Trace the target circle as accurately as you can. The AI will score your attempt. Can you achieve a perfect score?</p>
-            <Button size="lg" onClick={startGame}>Start Game</Button>
-          </div>
+        {gameState === "enterName" && (
+            <div className="flex flex-col items-center gap-6 text-center">
+              <h2 className="font-headline text-3xl font-bold">Welcome to CircleAce!</h2>
+              <p className="max-w-md text-muted-foreground">Enter a name to start playing and compete for a spot on the leaderboard.</p>
+              <div className="flex w-full max-w-sm items-center space-x-2">
+                <Input
+                  type="text"
+                  placeholder="Player Name"
+                  value={playerName}
+                  onChange={(e) => setPlayerName(e.target.value)}
+                  maxLength={20}
+                  className="h-12 text-lg"
+                />
+                <Button
+                  type="button"
+                  size="icon"
+                  className="h-12 w-12 flex-shrink-0"
+                  onClick={handleGenerateName}
+                  disabled={isGeneratingName}
+                >
+                  {isGeneratingName ? <RefreshCw className="animate-spin" /> : <RefreshCw />}
+                  <span className="sr-only">Generate Name</span>
+                </Button>
+              </div>
+              <Button size="lg" onClick={startGame} disabled={!playerName.trim()}>Start Game</Button>
+            </div>
         )}
 
         {(gameState === "playing" || gameState === "assessing") && targetCircle && (
@@ -192,7 +245,10 @@ export function Game() {
             <h2 className="font-headline text-3xl font-bold">Game Over!</h2>
             <p className="text-xl">Your final score is <span className="font-bold text-primary">{score}</span> in <span className="font-bold text-primary">{formatTime(elapsedTime)}</span>.</p>
             {justBeatHighScore && <p className="text-accent font-semibold">New High Score!</p>}
-            <Button size="lg" onClick={startGame}>Play Again</Button>
+            <div className="flex gap-4">
+              <Button size="lg" onClick={startGame}>Play Again</Button>
+              <Button size="lg" variant="outline" onClick={resetGame}>Change Name</Button>
+            </div>
           </div>
         )}
       </main>
@@ -216,6 +272,40 @@ export function Game() {
             <Button onClick={continueGame} className="w-full">
               {lives > 0 ? "Next Round" : "Finish Game"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={isLeaderboardOpen} onOpenChange={setIsLeaderboardOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-headline text-2xl">
+              <ListOrdered /> Leaderboard
+            </DialogTitle>
+            <DialogDescription>Top 5 Circle Aces. Higher score is better. Faster time breaks ties.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            {leaderboard.length > 0 ? (
+              <ol className="space-y-2">
+                {leaderboard.map((entry, index) => (
+                  <li key={index} className="flex items-center justify-between rounded-md bg-secondary p-3">
+                    <div className="flex items-center gap-3">
+                      <span className="w-6 text-center text-lg font-bold">{index + 1}</span>
+                      <span className="font-semibold">{entry.name}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-headline text-xl font-bold text-primary">{entry.score}</span>
+                      <p className="text-sm text-muted-foreground">{formatTime(entry.time)}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="text-center text-muted-foreground">No scores yet. Be the first!</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setIsLeaderboardOpen(false)} variant="outline">Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
